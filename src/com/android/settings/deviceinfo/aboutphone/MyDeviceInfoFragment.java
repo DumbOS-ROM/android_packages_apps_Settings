@@ -88,6 +88,7 @@ public class MyDeviceInfoFragment extends DashboardFragment
     @Override
     public void onStart() {
         super.onStart();
+        initDumbOsAboutCard();
         initHeader();
     }
 
@@ -224,4 +225,88 @@ public class MyDeviceInfoFragment extends DashboardFragment
                             null /* lifecycle */);
                 }
             };
+
+    private final long[] mDumbOsHits = new long[3];
+
+    private void initDumbOsAboutCard() {
+        try {
+            final LayoutPreference romCard =
+                    getPreferenceScreen().findPreference("dumbos_about_rom_card");
+            if (romCard == null) {
+                return;
+            }
+            final android.widget.TextView versionPill = romCard.findViewById(R.id.dumbos_version_pill);
+            final android.widget.TextView specDevice = romCard.findViewById(R.id.dumbos_spec_device);
+            final android.widget.TextView specAndroid = romCard.findViewById(R.id.dumbos_spec_android);
+            final android.widget.TextView specMode = romCard.findViewById(R.id.dumbos_spec_mode);
+            final android.widget.TextView specKernel = romCard.findViewById(R.id.dumbos_spec_kernel);
+            final android.widget.TextView specBuild = romCard.findViewById(R.id.dumbos_spec_build);
+            final View cardRoot = romCard.findViewById(R.id.dumbos_about_card_root);
+
+            String dumbVer = android.os.SystemProperties.get("ro.dumbos.version", "");
+            if (dumbVer.isEmpty()) {
+                dumbVer = android.os.SystemProperties.get("ro.lineage.display.version", "DumbOS");
+            }
+            if (versionPill != null) {
+                versionPill.setText(dumbVer.toUpperCase(java.util.Locale.US));
+            }
+            if (specDevice != null) {
+                specDevice.setText(android.os.Build.MODEL + " (" + android.os.Build.DEVICE + ")");
+            }
+            if (specAndroid != null) {
+                specAndroid.setText("Android " + android.os.Build.VERSION.RELEASE
+                        + " (API " + android.os.Build.VERSION.SDK_INT + ")");
+            }
+            if (specMode != null) {
+                String mode = null;
+                try {
+                    mode = android.provider.Settings.System.getString(
+                            getContext().getContentResolver(), "dumbos_mode");
+                } catch (Throwable ignored) {}
+                specMode.setText(mode != null && !mode.isEmpty() ? mode : "Normal");
+            }
+            if (specKernel != null) {
+                String ramStr = "";
+                try {
+                    android.app.ActivityManager am = getContext().getSystemService(android.app.ActivityManager.class);
+                    if (am != null) {
+                        android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+                        am.getMemoryInfo(mi);
+                        double gb = mi.totalMem / (1024.0 * 1024.0 * 1024.0);
+                        ramStr = String.format(java.util.Locale.US, "%.1f GB  •  ", gb);
+                    }
+                } catch (Throwable ignored) {}
+                String kver = System.getProperty("os.version", "Linux");
+                if (kver != null && kver.contains("-")) {
+                    kver = kver.split("-")[0];
+                }
+                specKernel.setText(ramStr + "Linux " + kver);
+            }
+            if (specBuild != null) {
+                specBuild.setText("BUILD // " + android.os.Build.TYPE.toUpperCase(java.util.Locale.US));
+            }
+            if (cardRoot != null) {
+                cardRoot.setOnClickListener(v -> {
+                    System.arraycopy(mDumbOsHits, 1, mDumbOsHits, 0, mDumbOsHits.length - 1);
+                    mDumbOsHits[mDumbOsHits.length - 1] = android.os.SystemClock.uptimeMillis();
+                    if (mDumbOsHits[0] >= android.os.SystemClock.uptimeMillis() - 600) {
+                        try {
+                            Intent egg = new Intent(Intent.ACTION_MAIN)
+                                    .setClassName("org.lineageos.lineageparts",
+                                            "org.lineageos.lineageparts.logo.PlatLogoActivity");
+                            startActivity(egg);
+                        } catch (Throwable t) {
+                            try {
+                                Intent plat = new Intent(Intent.ACTION_MAIN)
+                                        .setClassName("android", "com.android.internal.app.PlatLogoActivity");
+                                startActivity(plat);
+                            } catch (Throwable ignored) {}
+                        }
+                    }
+                });
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
 }
